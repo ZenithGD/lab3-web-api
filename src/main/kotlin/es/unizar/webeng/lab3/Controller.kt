@@ -23,6 +23,8 @@ class EmployeeController(
     @PostMapping("/employees")
     fun newEmployee(@RequestBody newEmployee: Employee): ResponseEntity<Employee> {
         val employee = repository.save(newEmployee)
+
+        // Crea URI absoluta utilizando como host y puerto el del servidor que lo ejecuta
         val location = ServletUriComponentsBuilder
             .fromCurrentServletMapping()
             .path("/employees/{id}")
@@ -51,6 +53,8 @@ class EmployeeController(
                 repository.save(newEmployee)
                 HttpStatus.CREATED to newEmployee
             }
+
+        // Apoyo para ayudar al navegador para que sepa a qué lugar tiene que hacer la petición
         return ResponseEntity.status(status).header("Content-Location", location).body(body)
     }
 

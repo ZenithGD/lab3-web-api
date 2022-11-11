@@ -10,12 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment
-import org.springframework.http.MediaType
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.delete
-import org.springframework.test.web.servlet.get
-import org.springframework.test.web.servlet.post
-import org.springframework.test.web.servlet.put
+import org.springframework.http.MediaType.APPLICATION_JSON
+import org.springframework.test.web.reactive.server.WebTestClient
+import org.springframework.web.reactive.function.BodyInserters
+import reactor.core.publisher.Mono
 import java.util.*
 
 private val MANAGER_REQUEST_BODY = { name: String ->
@@ -37,12 +35,12 @@ private val MANAGER_RESPONSE_BODY = { name: String, id: Int ->
     """
 }
 
-@SpringBootTest(webEnvironment = WebEnvironment.MOCK)
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 class ControllerTests {
 
     @Autowired
-    private lateinit var mvc: MockMvc
+    private lateinit var webClient: WebTestClient
 
     @MockkBean
     private lateinit var employeeRepository: EmployeeRepository
@@ -60,31 +58,27 @@ class ControllerTests {
             employee.captured.copy(id = 2)
         }
 
-        mvc.post("/employees") {
-            contentType = MediaType.APPLICATION_JSON
-            content = MANAGER_REQUEST_BODY("Mary")
-            accept = MediaType.APPLICATION_JSON
-        }.andExpect {
-            status { isCreated() }
-            header { string("Location", "http://localhost/employees/1") }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Mary", 1))
-            }
-        }
+        webClient.post().uri("/employees")
+            .contentType(APPLICATION_JSON)
+            .body(BodyInserters.fromPublisher(Mono.just(MANAGER_REQUEST_BODY("Tom")), String::class.java))
+            .accept(APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isCreated
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectHeader().location("http://localhost/employees/1")
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Mary", 1))
 
-        mvc.post("/employees") {
-            contentType = MediaType.APPLICATION_JSON
-            content = MANAGER_REQUEST_BODY("Mary")
-            accept = MediaType.APPLICATION_JSON
-        }.andExpect {
-            status { isCreated() }
-            header { string("Location", "http://localhost/employees/2") }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Mary", 2))
-            }
-        }
+        webClient.post().uri("/employees")
+            .contentType(APPLICATION_JSON)
+            .body(BodyInserters.fromPublisher(Mono.just(MANAGER_REQUEST_BODY("Mary")), String::class.java))
+            .accept(APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isCreated
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectHeader().location("http://localhost/employees/2")
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Mary", 2))
 
         // VERIFY
     }
@@ -105,25 +99,23 @@ class ControllerTests {
             Optional.empty()
         }
 
-        mvc.get("/employees/1").andExpect {
-            status { isOk() }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Mary", 1))
-            }
-        }
+        webClient.get().uri("/employees/1")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Mary", 1))
 
-        mvc.get("/employees/1").andExpect {
-            status { isOk() }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Mary", 1))
-            }
-        }
+        webClient.get().uri("/employees/1")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Mary", 1))
 
-        mvc.get("/employees/2").andExpect {
-            status { isNotFound() }
-        }
+        webClient.get().uri("/employees/2")
+            .exchange()
+            .expectStatus().isNotFound
 
         // VERIFY
         verify(exactly = 2) {
@@ -159,31 +151,27 @@ class ControllerTests {
             employee.captured
         }
 
-        mvc.put("/employees/1") {
-            contentType = MediaType.APPLICATION_JSON
-            content = MANAGER_REQUEST_BODY("Tom")
-            accept = MediaType.APPLICATION_JSON
-        }.andExpect {
-            status { isCreated() }
-            header { string("Content-Location", "http://localhost/employees/1") }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Tom", 1))
-            }
-        }
+        webClient.put().uri("/employees/1")
+            .contentType(APPLICATION_JSON)
+            .body(BodyInserters.fromPublisher(Mono.just(MANAGER_REQUEST_BODY("Tom")), String::class.java))
+            .accept(APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isCreated
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectHeader().valueEquals("Content-Location", "http://localhost/employees/1")
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Tom", 1))
 
-        mvc.put("/employees/1") {
-            contentType = MediaType.APPLICATION_JSON
-            content = MANAGER_REQUEST_BODY("Tom")
-            accept = MediaType.APPLICATION_JSON
-        }.andExpect {
-            status { isOk() }
-            header { string("Content-Location", "http://localhost/employees/1") }
-            content {
-                contentType(MediaType.APPLICATION_JSON)
-                json(MANAGER_RESPONSE_BODY("Tom", 1))
-            }
-        }
+        webClient.put().uri("/employees/1")
+            .contentType(APPLICATION_JSON)
+            .body(BodyInserters.fromPublisher(Mono.just(MANAGER_REQUEST_BODY("Tom")), String::class.java))
+            .accept(APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().contentType(APPLICATION_JSON)
+            .expectHeader().valueEquals("Content-Location", "http://localhost/employees/1")
+            .expectBody()
+            .equals(MANAGER_RESPONSE_BODY("Tom", 1))
 
         // VERIFY
         verify(exactly = 2) {
@@ -212,13 +200,13 @@ class ControllerTests {
             employeeRepository.deleteById(1)
         }
 
-        mvc.delete("/employees/1").andExpect {
-            status { isNoContent() }
-        }
+        webClient.delete().uri("/employees/1")
+            .exchange()
+            .expectStatus().isNoContent
 
-        mvc.delete("/employees/1").andExpect {
-            status { isNotFound() }
-        }
+        webClient.delete().uri("/employees/1")
+            .exchange()
+            .expectStatus().isNotFound
 
         // VERIFY
         verify(exactly = 1) {
